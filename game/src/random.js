@@ -1,5 +1,7 @@
-// A tiny deterministic random number generator and the smooth noise the terrain is built
-// from. Same seed, same valley, same trees, same clouds — every run, every screenshot.
+// A small deterministic toolbox: a seeded generator, smooth value noise for the
+// hills, and the angle and clamp helpers the flight model leans on. The same
+// seed always grows the same valley, the same pines and the same clouds, so a
+// screenshot taken today matches a screenshot taken tomorrow, frame for frame.
 export function mulberry32(seed) {
   let a = seed >>> 0;
   return function next() {
@@ -11,7 +13,7 @@ export function mulberry32(seed) {
   };
 }
 
-/** Smooth 1-D value noise in [0, 1): a hashed lattice with cosine interpolation. */
+/** Smooth 1-D value noise in [0, 1): a hashed lattice, cosine-blended. */
 export function valueNoise1D(x, seed) {
   const xi = Math.floor(x);
   const xf = x - xi;
@@ -24,7 +26,7 @@ export function valueNoise1D(x, seed) {
   return hash(xi) * (1 - u) + hash(xi + 1) * u;
 }
 
-/** Smooth 2-D value noise in [0, 1). */
+/** Smooth 2-D value noise in [0, 1), the same lattice in two dimensions. */
 export function valueNoise2D(x, y, seed) {
   const xi = Math.floor(x);
   const yi = Math.floor(y);
@@ -44,23 +46,23 @@ export function valueNoise2D(x, y, seed) {
   return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
 }
 
-/** Clamp a number into [lo, hi]. */
+/** Keep a number inside [lo, hi]. */
 export function clamp(v, lo, hi) {
   return v < lo ? lo : v > hi ? hi : v;
 }
 
-/** Linear interpolation. */
+/** Straight-line blend between a and b. */
 export function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
-/** Smoothstep 0..1 across an edge. */
+/** The classic smoothstep curve, 0 at edge0 and 1 at edge1. */
 export function smoothstep(edge0, edge1, x) {
   const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
   return t * t * (3 - 2 * t);
 }
 
-/** Shortest signed angle from `from` to `to`, in (-PI, PI]. */
+/** The shortest signed turn from one heading to another, in (-PI, PI]. */
 export function angleDelta(from, to) {
   let d = (to - from) % (Math.PI * 2);
   if (d > Math.PI) d -= Math.PI * 2;

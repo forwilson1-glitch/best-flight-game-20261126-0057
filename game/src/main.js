@@ -1,6 +1,6 @@
-// Sunset Ridge — Valley Run: the game loop, the screens, and the wiring between the
-// stick, the world, the renderer and the instruments. The world is stepped at a fixed
-// 60 Hz so the flight model feels the same on every machine.
+// Sunset Ridge — Valley Run: the game loop, the screens, and the wiring between
+// the stick, the world, the renderer and the instruments. The world steps at a
+// fixed 60 Hz, so the flight model feels the same on every machine.
 import { MISSIONS } from './config.js';
 import { createWorld, stepWorld, restartWorld, setMission, SCREEN_TITLE, SCREEN_PLAY, SCREEN_PAUSED, SCREEN_CRASHED, SCREEN_COMPLETE } from './world.js';
 import { renderScene } from './render.js';
@@ -38,14 +38,22 @@ resize();
 
 if (shotName) {
   // Deterministic screenshot mode: stage the scene, draw one frame, stop.
-  const missionId = shotName === 'landing' ? 'home' : shotName === 'rings' ? 'slalom' : 'rings';
-  const staged = stageShot(shotName, missionId);
-  world = staged.world;
-  renderScene(ctx, canvas.width, canvas.height, world, scenery, world.time);
-  // The HUD is part of the shot: it shows the instruments lit and the mission
-  // state, whether the scene ends mid-flight, on the runway or complete.
-  drawHUD(ctx, canvas.width, canvas.height, world, MISSIONS.find((m) => m.id === missionId));
-  document.title = `Sunset Ridge — ${shotName}`;
+  // ?shot=title stages the menu over the valley; the others stage a mission.
+  if (shotName === 'title') {
+    world = stageTitleBackdrop();
+    renderScene(ctx, canvas.width, canvas.height, world, scenery, world.time);
+    drawTitle(ctx, canvas.width, canvas.height, 0, 0);
+    document.title = 'Sunset Ridge — title';
+  } else {
+    const missionId = shotName === 'landing' ? 'home' : shotName === 'rings' ? 'slalom' : 'rings';
+    const staged = stageShot(shotName, missionId, canvas.width, canvas.height);
+    world = staged.world;
+    renderScene(ctx, canvas.width, canvas.height, world, scenery, world.time);
+    // The HUD is part of the shot: it shows the instruments lit and the mission
+    // state, whether the scene ends mid-flight, on the runway or complete.
+    drawHUD(ctx, canvas.width, canvas.height, world, MISSIONS.find((m) => m.id === missionId));
+    document.title = `Sunset Ridge — ${shotName}`;
+  }
 } else {
   requestAnimationFrame(frame);
 }

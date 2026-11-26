@@ -1,16 +1,18 @@
-// The three sorties: what the pilot is asked to do, where the rings and gates hang,
-// and what each one is worth. Courses are fixed in the world, so a second attempt
-// flies the same valley — the skill is in the flying, not in memorising a new map.
+// The three sorties: what the pilot is asked to do, where the rings and gates
+// hang in the air, and what each one is worth. The courses are fixed in the
+// world, so a second attempt flies the same valley — the skill is in the
+// flying, not in memorising a new map each time.
 import { CONFIG } from './config.js';
 import { groundHeight } from './terrain.js';
 import { clamp } from './random.js';
 
+/** One ring or gate, hung high enough to fly through with room to spare. */
 function ringAt(x, z, kind) {
   const y = Math.max(groundHeight(x, z) + 70, 130);
   return { x, y, z, radius: CONFIG.ringRadius, kind, passed: false };
 }
 
-/** Ring Run: eight gold rings winding down the valley, two green fuel rings. */
+/** Ring Run: eight gold rings winding down the valley, plus two green fuel rings. */
 function buildRingCourse() {
   const pts = [
     [60, 320], [170, 640], [60, 960], [-140, 1260],
@@ -21,18 +23,24 @@ function buildRingCourse() {
   return { rings: [...rings, ...fuel], count: rings.length };
 }
 
-/** Valley Slalom: ten gates, left then right, down the same valley. */
+/** Valley Slalom: ten gates, left then right, down that same valley. The gates
+ * stay close to the valley line, so each one is approached from behind and
+ * seen face-on — a gate you fly at sideways is a line, not a target. They
+ * stand 400 m apart down the valley, so the aeroplane has room to turn
+ * between them: with a 128 m turn radius, a tighter course asks for a turn
+ * the wing cannot make and the autopilot ends up circling a gate it can
+ * never thread. */
 function buildSlalomCourse() {
   const gates = [];
   for (let i = 0; i < 10; i += 1) {
-    const z = 300 + i * 320;
-    const x = (i % 2 === 0 ? -1 : 1) * (100 + (i % 3) * 30);
+    const z = 300 + i * 400;
+    const x = (i % 2 === 0 ? -1 : 1) * (60 + (i % 3) * 20);
     gates.push(ringAt(x, z, 'gate'));
   }
   return { rings: gates, count: gates.length };
 }
 
-/** Home Run: one beacon ring two kilometres out, then home to the runway. */
+/** Home Run: one beacon ring two kilometres out, then home to the strip. */
 function buildHomeCourse() {
   const beacon = ringAt(120, 2050, 'beacon');
   return { rings: [beacon], count: 1 };
@@ -54,16 +62,16 @@ export function nextTarget(mission) {
   return null;
 }
 
-/** How many course rings/gates are still ahead. */
+/** How many course rings or gates are still ahead of the pilot. */
 export function remainingCount(mission) {
   if (mission.kind === 'rings') return mission.rings.filter((r) => r.kind === 'course' && !r.passed).length;
   return mission.rings.filter((r) => !r.passed).length;
 }
 
 /**
- * Check the aircraft against the next target: flying through the hole scores it.
- * Returns 'ring' | 'fuel' | 'gate' | 'missed' | null. A gate counts as missed once
- * the aircraft is 120 m past it without flying through.
+ * Check the aeroplane against the next target: flying through the hole scores
+ * it. Returns 'ring' | 'fuel' | 'gate' | 'missed' | null. A slalom gate counts
+ * as missed once the aeroplane is 120 m past it without threading it.
  */
 export function checkTargets(mission, plane, prevZ, now) {
   const target = nextTarget(mission);
@@ -106,13 +114,14 @@ export function checkTargets(mission, plane, prevZ, now) {
 }
 
 /**
- * Landing judgement, called when the wheels touch. Returns 'landed' | 'hard' | 'crash'.
- * A good landing is slow, level and gentle, on the runway, into the wind.
+ * The landing judgement, called when the wheels touch. Returns 'landed' |
+ * 'hard' | 'crash'. A good landing is slow, level and gentle, on the runway,
+ * into the wind — anything else is a hard landing or a crash.
  */
 export function judgeLanding(plane, groundY) {
   const onRunway = Math.abs(plane.x - CONFIG.runway.x) < CONFIG.runway.width / 2 + 4
     && Math.abs(plane.z - CONFIG.runway.z) < CONFIG.runway.length / 2;
-  const vs = -plane.verticalSpeed; // positive = descending
+  const vs = -plane.verticalSpeed; // positive means descending
   const level = Math.abs(plane.roll) < 0.3 && Math.abs(plane.pitch) < 0.18;
   if (!onRunway) return 'crash';
   if (vs > 7 || plane.speed > 62) return 'crash';
@@ -121,7 +130,7 @@ export function judgeLanding(plane, groundY) {
   return 'landed';
 }
 
-/** Finish the mission and work out the final score line. */
+/** Finish a mission and work out the final score line. */
 export function finishMission(mission, plane, now) {
   mission.done = true;
   const timeBonus = Math.max(0, Math.round((300 - mission.elapsed) * CONFIG.scoreTimeBonusPerSecond));
@@ -144,7 +153,7 @@ export function finishMission(mission, plane, now) {
   return line;
 }
 
-/** mm:ss.t for the timer. */
+/** A time as mm:ss.t, for the HUD timer. */
 export function formatTime(seconds) {
   const m = Math.floor(seconds / 60);
   const s = seconds - m * 60;

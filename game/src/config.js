@@ -1,45 +1,48 @@
-// Sunset Ridge — Valley Run: every tunable number for the flight model, the world and the
-// missions lives here, so balancing never means hunting through the render code.
+// Sunset Ridge — Valley Run: one place for every number the game tunes by.
+// Nothing here is read at run time from anywhere else, so changing the feel of
+// the flying, the valley or a mission means changing a number below and nothing
+// else. Speeds are metres per second, heights are metres, angles are radians.
 export const CONFIG = {
-  // Flight model
-  maxSpeed: 92, // m/s at full throttle, clean
-  maxSpeedFlaps: 58, // m/s with flaps down
-  minSpeed: 30, // below this the wing stops flying and the nose drops
-  minSpeedFlaps: 21,
-  accel: 14, // m/s^2 the engine can add
-  drag: 0.10, // drag coefficient pulling speed toward the throttle target
-  pitchRate: 0.85, // rad/s of pitch authority
-  rollRate: 1.9, // rad/s of roll authority
-  maxPitch: 0.55, // rad, about 31 degrees
-  maxRoll: 1.05, // rad, about 60 degrees of bank
+  // How the Kestrel answers the stick and the throttle.
+  maxSpeed: 92, // flat out, clean, level flight
+  maxSpeedFlaps: 58, // with the flaps hanging out
+  minSpeed: 30, // under this the wing gives up and the nose falls
+  minSpeedFlaps: 21, // flaps buy a slower wing
+  accel: 14, // what the engine can add, m/s^2
+  drag: 0.10, // how hard the air pushes back
+  pitchRate: 0.85, // nose authority, rad/s
+  rollRate: 1.9, // wing authority, rad/s
+  maxPitch: 0.55, // about 31 degrees either way
+  maxRoll: 1.05, // about 60 degrees of bank
   turnRate: 0.55, // heading change per radian of bank, per second, at cruise
-  pitchStability: 0.35, // 1/s, how fast the nose returns to level with no input
-  rollStability: 1.1, // 1/s, how fast the wings level with no input
+  pitchStability: 0.35, // 1/s, the nose settling back to level on its own
+  rollStability: 1.1, // 1/s, the wings levelling on their own
   gravity: 9.81,
-  // Fuel and damage
+  // Fuel in the tanks and damage on the airframe.
   fuelCapacity: 100,
-  fuelBurnCruise: 0.55, // fuel per second at 70% throttle
-  fuelBurnFull: 1.15, // fuel per second at full throttle
-  fuelRingRestore: 45,
-  damageHardLanding: 35,
-  damageGroundGraze: 100, // hitting terrain outside the runway is a crash
-  // World
+  fuelBurnCruise: 0.55, // per second at 70% throttle
+  fuelBurnFull: 1.15, // per second at full throttle
+  fuelRingRestore: 45, // what a green ring puts back in the tanks
+  damageHardLanding: 35, // one thud on the runway
+  damageGroundGraze: 100, // the hills do not forgive at all
+  // The strip and where the aeroplane starts on it.
   runway: { x: 0, z: 0, heading: 0, length: 620, width: 26 },
-  startAltitude: 12, // metres above the runway at spawn
-  // Camera
-  cameraDistance: 27, // metres behind the aircraft
-  cameraHeight: 8.5, // metres above the aircraft
-  focal: 0.92, // projection focal length, as a fraction of canvas height
-  // Missions
-  ringRadius: 17, // metres, the hole you fly through
-  gatePenaltySeconds: 5, // slalom: seconds added for a missed gate
+  startAltitude: 12, // metres over the runway at spawn
+  // The chase camera: close enough that the valley fills the frame, far enough
+  // that the next ring is in view while the Kestrel stays a good size.
+  cameraDistance: 24, // metres behind the aircraft
+  cameraHeight: 7.5, // metres above it
+  focal: 0.98, // projection focal length, as a fraction of canvas height
+  // The course furniture and what it pays.
+  ringRadius: 17, // metres, the hole you have to fly through
+  gatePenaltySeconds: 5, // slalom: added for every gate sailed past
   ringScore: 100,
   landingSoftBonus: 250,
   fuelBonusPerUnit: 2,
-  // Scoring helpers
   scoreTimeBonusPerSecond: 4,
 };
 
+// The three sorties, in the order the title screen offers them.
 export const MISSIONS = [
   {
     id: 'rings',

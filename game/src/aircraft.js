@@ -1,27 +1,28 @@
-// The Kestrel herself: a sporty prop monoplane, drawn in flat vector with care —
-// a fuselage you can see the panels on, a canopy, a spinning prop, wingtip lights.
-// Drawn in screen space, banked with the roll, so the chase view always shows her.
+// The Kestrel herself: a sporty prop monoplane in flat vector, drawn with care
+// — a fuselage you can see the panels on, a smoked canopy, a spinning prop and
+// wingtip lights. She is drawn in screen space, banked with the roll, so the
+// chase view always shows her the same size however the valley moves behind.
 import { clamp } from './random.js';
 
-/** Draw the aircraft at screen (cx, cy), banked by `roll` radians. Size in pixels. */
+/** Draw the aeroplane at screen (cx, cy), banked by `roll` radians. */
 export function drawAircraft(ctx, cx, cy, roll, pitch, throttle, propAngle, time) {
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(clamp(roll, -1.1, 1.1) * 0.9);
-  const S = 1; // scale unit: the wingspan is about 300 px
-  ctx.scale(S, S);
+  const S = 1; // scale unit: the wingspan comes out near 300 px
 
-  // Soft shadow on the ground is drawn by the renderer; here is the machine.
+  // The paint: sunset gold at the nose, burnt orange in the middle, deep red
+  // at the tail; pale wings with a darker edge.
   const body = ctx.createLinearGradient(0, -150, 0, 40);
-  body.addColorStop(0, '#e8b64c'); // sunset gold nose
-  body.addColorStop(0.45, '#d97b3f'); // burnt orange mid
-  body.addColorStop(1, '#8c3d2b'); // deep red tail
+  body.addColorStop(0, '#e8b64c');
+  body.addColorStop(0.45, '#d97b3f');
+  body.addColorStop(1, '#8c3d2b');
   const wingGrad = ctx.createLinearGradient(-150, 0, 150, 0);
   wingGrad.addColorStop(0, '#c9d6e8');
   wingGrad.addColorStop(0.5, '#eef3fa');
   wingGrad.addColorStop(1, '#c9d6e8');
 
-  // Main wings: tapered, slightly swept, with panel lines and tip lights.
+  // Main wings: tapered, slightly swept, panel lines, tip lights.
   ctx.fillStyle = wingGrad;
   ctx.beginPath();
   ctx.moveTo(-152, 6);
@@ -36,7 +37,7 @@ export function drawAircraft(ctx, cx, cy, roll, pitch, throttle, propAngle, time
   ctx.strokeStyle = 'rgba(40,48,66,0.55)';
   ctx.lineWidth = 2;
   ctx.stroke();
-  // Wing panel lines
+  // Panel lines across the wings.
   ctx.strokeStyle = 'rgba(40,48,66,0.28)';
   ctx.lineWidth = 1.5;
   for (const wx of [-100, -60, 60, 100]) {
@@ -45,13 +46,13 @@ export function drawAircraft(ctx, cx, cy, roll, pitch, throttle, propAngle, time
     ctx.lineTo(wx * 0.92, 12);
     ctx.stroke();
   }
-  // Wingtip navigation lights: red port, green starboard.
+  // Navigation lights: red on the port tip, green on the starboard tip.
   ctx.fillStyle = '#ff3b30';
   ctx.beginPath(); ctx.arc(-150, 6, 5, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#2fd05a';
   ctx.beginPath(); ctx.arc(150, 6, 5, 0, Math.PI * 2); ctx.fill();
 
-  // Tailplane, lower on the frame (nearer the camera).
+  // Tailplane, lower on the frame because it sits nearer the camera.
   ctx.fillStyle = '#dfe7f2';
   ctx.beginPath();
   ctx.moveTo(-62, 34);
@@ -66,7 +67,7 @@ export function drawAircraft(ctx, cx, cy, roll, pitch, throttle, propAngle, time
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  // Fuselage: long, tapering from the tail (bottom) to the nose (top).
+  // Fuselage: long, tapering from the tail at the bottom to the nose at the top.
   ctx.fillStyle = body;
   ctx.beginPath();
   ctx.moveTo(-14, 44);
@@ -81,7 +82,7 @@ export function drawAircraft(ctx, cx, cy, roll, pitch, throttle, propAngle, time
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // Belly stripe and rivet line.
+  // Belly stripe and a rivet line down the fuselage.
   ctx.strokeStyle = 'rgba(255,235,200,0.5)';
   ctx.lineWidth = 3;
   ctx.beginPath();
@@ -93,7 +94,7 @@ export function drawAircraft(ctx, cx, cy, roll, pitch, throttle, propAngle, time
   ctx.lineTo(4, 40);
   ctx.stroke();
 
-  // Canopy: smoked glass with a glint.
+  // Canopy: smoked glass with a glint of sky in it.
   const canopy = ctx.createLinearGradient(-8, -100, 8, -58);
   canopy.addColorStop(0, '#bfe3f2');
   canopy.addColorStop(0.5, '#5d8fb0');
@@ -116,7 +117,7 @@ export function drawAircraft(ctx, cx, cy, roll, pitch, throttle, propAngle, time
   ctx.lineTo(1, -70);
   ctx.stroke();
 
-  // Vertical fin with the sunset-roundel.
+  // Vertical fin with the sunset roundel.
   ctx.fillStyle = '#8c3d2b';
   ctx.beginPath();
   ctx.moveTo(-3, 40);
@@ -130,14 +131,14 @@ export function drawAircraft(ctx, cx, cy, roll, pitch, throttle, propAngle, time
   ctx.fillStyle = '#d97b3f';
   ctx.beginPath(); ctx.arc(0, 60, 3.5, 0, Math.PI * 2); ctx.fill();
 
-  // Registration on the wing.
+  // Registration on the wings, big enough to read at a glance.
   ctx.fillStyle = 'rgba(30,38,54,0.8)';
-  ctx.font = 'bold 11px system-ui, sans-serif';
+  ctx.font = 'bold 12px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText('N77SR', -84, 4);
   ctx.fillText('KESTREL', 84, 4);
 
-  // Propeller: a spinning blur disc at the nose, brighter with throttle.
+  // Propeller: a spinning blur disc at the nose, brighter with the throttle.
   const propR = 26 + throttle * 10;
   const propAlpha = 0.10 + throttle * 0.16;
   ctx.save();
@@ -158,7 +159,7 @@ export function drawAircraft(ctx, cx, cy, roll, pitch, throttle, propAngle, time
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  // Exhaust shimmer when the throttle is open.
+  // Exhaust shimmer when the throttle is well open.
   if (throttle > 0.55) {
     const flicker = 0.25 + 0.2 * Math.sin(time * 31) * Math.sin(time * 17);
     ctx.fillStyle = `rgba(255,${Math.round(160 + 60 * flicker)},60,${0.35 + flicker})`;

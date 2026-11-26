@@ -1,16 +1,17 @@
-// The flight model: throttle, pitch, roll and the air itself. Arcade-true, not a
-// simulator — speed follows the throttle, the nose follows the stick, and the wing
-// quits below flying speed, so slow flight is a decision, not a free ride.
+// The flight model: throttle, pitch, roll and the air they work in. It is
+// arcade-true rather than a simulator — speed chases the throttle, the nose
+// follows the stick, a banked wing turns the aeroplane, and a slow wing drops
+// the nose, so slow flight is a decision the pilot makes, not a free ride.
 import { CONFIG } from './config.js';
 import { clamp, angleDelta } from './random.js';
 
-/** A fresh aircraft state, parked on the runway threshold, facing north. */
+/** A fresh aeroplane: parked on the threshold, facing north up the valley. */
 export function createAircraft() {
   return {
     x: CONFIG.runway.x,
-    y: CONFIG.runway.z === 0 ? 2 : 2, // wheels on the ground, runway height is 0
+    y: 2, // wheels on the ground; the runway itself sits at height 0
     z: -CONFIG.runway.length / 2 + 40,
-    heading: 0, // 0 = north, +z
+    heading: 0, // 0 means north, +z
     pitch: 0,
     roll: 0,
     speed: 0,
@@ -26,27 +27,27 @@ export function createAircraft() {
 }
 
 /**
- * One physics step. `input` is { pitch: -1..1 (pull up is +1), roll: -1..1,
- * throttle: -1..1 (change), flaps: boolean, brakes: boolean }.
- * Returns an event string: 'takeoff' | 'stall' | null.
+ * One step of the flight model. `input` is the stick: pitch -1..1 (pulling up
+ * is +1), roll -1..1, throttle -1..1 (a change, not a setting), flaps and
+ * brakes as booleans. Returns 'takeoff' | 'stall' | null.
  */
 export function stepFlight(plane, input, dt) {
   const cfg = CONFIG;
   const maxSpeed = input.flaps ? cfg.maxSpeedFlaps : cfg.maxSpeed;
   const minSpeed = input.flaps ? cfg.minSpeedFlaps : cfg.minSpeed;
 
-  // Throttle: the lever moves, the engine answers.
+  // The throttle lever moves, and the engine answers a beat later.
   plane.throttle = clamp(plane.throttle + input.throttle * dt * 0.9, 0, 1);
   if (input.brakes) plane.throttle = Math.max(0, plane.throttle - dt * 1.5);
 
-  // Speed chases the throttle's target; drag grows with the square of speed.
+  // Speed chases the throttle's target while drag grows with speed squared.
   const target = plane.throttle * maxSpeed;
   const drag = cfg.drag * plane.speed * plane.speed / maxSpeed;
   plane.speed += (cfg.accel * plane.throttle - drag) * dt;
   if (plane.speed < target) plane.speed = Math.min(plane.speed + cfg.accel * dt, target);
   plane.speed = clamp(plane.speed, 0, maxSpeed + 6);
 
-  // Pitch and roll answer the stick, then relax toward level flight.
+  // The stick moves pitch and roll, and both relax toward level flight.
   const authority = clamp(plane.speed / 45, 0.25, 1);
   plane.pitch = clamp(
     plane.pitch + input.pitch * cfg.pitchRate * authority * dt - plane.pitch * cfg.pitchStability * dt,
@@ -57,16 +58,16 @@ export function stepFlight(plane, input, dt) {
     -cfg.maxRoll, cfg.maxRoll,
   );
 
-  // A banked wing turns the nose; a slow wing drops it.
+  // A banked wing turns the nose; a slow wing lets it drop.
   const wasAirborne = plane.airborne;
   plane.heading += -plane.roll * cfg.turnRate * clamp(plane.speed / 60, 0, 1.4) * dt;
   let event = null;
   if (plane.airborne && plane.speed < minSpeed) {
-    plane.pitch -= 0.9 * dt; // the stall: the nose falls through
+    plane.pitch -= 0.9 * dt; // the stall: the nose falls through the horizon
     if (plane.pitch < -0.35) event = 'stall';
   }
 
-  // Move through the air.
+  // And through the air it goes.
   const cosP = Math.cos(plane.pitch);
   plane.verticalSpeed = plane.speed * Math.sin(plane.pitch);
   plane.x += plane.speed * cosP * Math.sin(plane.heading) * dt;
@@ -75,7 +76,7 @@ export function stepFlight(plane, input, dt) {
   plane.groundSpeed = plane.speed * cosP;
   plane.propAngle += (2 + plane.throttle * 38) * dt;
 
-  // Liftoff: fast enough and pulling up, or simply fast enough on the runway.
+  // Liftoff: quick enough and pulling up, or simply quick enough on the strip.
   if (!plane.airborne && plane.speed > minSpeed * 0.85 && plane.pitch > 0.04) {
     plane.airborne = true;
     event = 'takeoff';
@@ -84,7 +85,11 @@ export function stepFlight(plane, input, dt) {
   return event;
 }
 
-/** Steer helper for the autopilot: inputs that point the nose at a target. */
+/**
+ * The autopilot's steering: the stick inputs that point the nose at a target
+ * point at a chosen speed. Bank is capped, so the autopilot never rolls the
+ * aeroplane onto its back the way a panicked pilot would.
+ */
 export function steerToward(plane, targetX, targetY, targetZ, targetSpeed, dt) {
   const dx = targetX - plane.x;
   const dy = targetY - plane.y;
@@ -94,7 +99,6 @@ export function steerToward(plane, targetX, targetY, targetZ, targetSpeed, dt) {
   const headingErr = angleDelta(plane.heading, wantHeading);
   const wantPitch = clamp(Math.atan2(dy, Math.max(30, dist)) * 0.9, -0.12, 0.35);
   const pitchErr = wantPitch - plane.pitch;
-  // Bank into the turn, capped so the autopilot never rolls the aircraft over.
   const wantRoll = clamp(-headingErr * 1.1, -0.85, 0.85);
   return {
     pitch: clamp(pitchErr * 2.2, -1, 1),

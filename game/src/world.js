@@ -1,6 +1,7 @@
-// The world: one aircraft, one mission, the fuel in its tanks, the damage on its
-// airframe, and the smoke and sparks that say what just happened. Everything the
-// renderer draws and the HUD reports comes from here.
+// The world: one aeroplane, one mission, the fuel in its tanks, the damage on
+// its airframe, and the smoke and sparks that say what just happened. The
+// renderer draws from here and the HUD reports from here, so this file is the
+// one place where the game decides what is true.
 import { CONFIG } from './config.js';
 import { createAircraft, stepFlight } from './physics.js';
 import { createMission, checkTargets, judgeLanding, finishMission, nextTarget, remainingCount } from './missions.js';
@@ -13,7 +14,7 @@ export const SCREEN_PAUSED = 'paused';
 export const SCREEN_CRASHED = 'crashed';
 export const SCREEN_COMPLETE = 'complete';
 
-/** A fresh world: aircraft on the runway, first mission armed, clock at zero. */
+/** A fresh world: the aeroplane on the runway, the first mission armed, clock at zero. */
 export function createWorld(missionId) {
   return {
     plane: createAircraft(),
@@ -31,7 +32,7 @@ export function createWorld(missionId) {
   };
 }
 
-/** Swap to another mission from the title screen. */
+/** Swap to another mission from the title screen, keeping the session's best score. */
 export function setMission(world, missionId) {
   const best = world.best;
   const fresh = createWorld(missionId);
@@ -39,6 +40,7 @@ export function setMission(world, missionId) {
   return fresh;
 }
 
+/** A burst of smoke or sparks at a point in the world. */
 function addParticles(world, kind, x, y, z, count) {
   for (let i = 0; i < count; i += 1) {
     world.particles.push({
@@ -62,11 +64,10 @@ export function stepWorld(world, input, dt) {
   const plane = world.plane;
   const mission = world.mission;
   const prevZ = plane.z;
-  const prevY = plane.y;
   world.time += dt;
   mission.elapsed += dt;
 
-  // Fuel: the engine drinks, and an empty tank glides.
+  // Fuel: the engine drinks, and an empty tank only glides.
   const burn = plane.throttle < 0.7
     ? CONFIG.fuelBurnCruise * (0.4 + plane.throttle)
     : CONFIG.fuelBurnFull * plane.throttle;
@@ -79,7 +80,7 @@ export function stepWorld(world, input, dt) {
     world.flashAt = world.time;
   }
 
-  // On the ground, the wheels stay on the ground: never sink through the runway.
+  // On the ground the wheels stay on the ground: never sink through the strip.
   if (!plane.airborne) {
     const groundNow = groundHeight(plane.x, plane.z);
     if (plane.y < groundNow + 0.6) {
@@ -88,7 +89,7 @@ export function stepWorld(world, input, dt) {
     }
   }
 
-  // Rings, gates, beacons.
+  // Rings, gates, the beacon.
   const hit = checkTargets(mission, plane, prevZ, world.time);
   if (hit === 'ring' || hit === 'gate') {
     addParticles(world, 'spark', plane.x, plane.y, plane.z, 14);
@@ -146,12 +147,12 @@ export function stepWorld(world, input, dt) {
     world.screen = SCREEN_COMPLETE;
   }
 
-  // Out of fuel over the hills: a forced landing is a crash anywhere but the runway.
+  // Out of fuel over the hills: a forced landing is a crash anywhere but the strip.
   if (plane.fuel <= 0 && plane.airborne && agl < 4 && plane.speed < 25) {
     crash(world, 'Out of fuel — the Kestrel settled into the valley floor.');
   }
 
-  // Course complete: all rings flown, or all gates cleared.
+  // Course complete: every ring flown, or every gate cleared.
   if (!mission.done && mission.kind !== 'home' && remainingCount(mission) === 0) {
     finishMission(mission, plane, world.time);
     world.screen = SCREEN_COMPLETE;
@@ -159,7 +160,7 @@ export function stepWorld(world, input, dt) {
     world.flashAt = world.time;
   }
 
-  // Particles drift and fade.
+  // Particles drift, rise or fall, and fade out.
   for (const p of world.particles) {
     p.age += dt;
     p.x += p.vx * dt;
@@ -168,9 +169,9 @@ export function stepWorld(world, input, dt) {
     p.vy += (p.kind === 'smoke' ? 1.5 : -2) * dt;
   }
   world.particles = world.particles.filter((p) => p.age < p.life);
-  void prevY;
 }
 
+/** The end of the flight: smoke, sparks and a reason on the screen. */
 function crash(world, reason) {
   const plane = world.plane;
   world.screen = SCREEN_CRASHED;
@@ -182,7 +183,7 @@ function crash(world, reason) {
   world.events.push('crash');
 }
 
-/** Restart the same mission, aircraft back on the threshold. */
+/** Restart the same mission, the aeroplane back on the threshold. */
 export function restartWorld(world) {
   const best = Math.max(world.best, world.mission.score);
   const fresh = createWorld(world.mission.id);

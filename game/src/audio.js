@@ -1,10 +1,11 @@
 // Sound, synthesised in the browser with WebAudio — no audio files, no network.
-// An engine that follows the throttle, wind that follows the speed, and a chime,
-// a thud and a crash that each say what just happened.
+// An engine note that follows the throttle, wind that follows the speed, and a
+// chime, a thud and a crash that each say what just happened, in sound.
 export function createAudio() {
   return {
     ctx: null,
     engineOsc: null,
+    engineOsc2: null,
     engineGain: null,
     windSource: null,
     windGain: null,
@@ -23,13 +24,14 @@ export function startAudio(audio) {
   if (!AC) return;
   const ctx = new AC();
   audio.ctx = ctx;
-  // Engine: two detuned saws through a low-pass, the note rising with the throttle.
+  // Engine: two detuned saws through a low-pass, the note rising with throttle.
   audio.engineOsc = ctx.createOscillator();
   audio.engineOsc.type = 'sawtooth';
   audio.engineOsc.frequency.value = 55;
   const osc2 = ctx.createOscillator();
   osc2.type = 'sawtooth';
   osc2.frequency.value = 55.7;
+  audio.engineOsc2 = osc2;
   audio.engineGain = ctx.createGain();
   audio.engineGain.gain.value = 0;
   const lp = ctx.createBiquadFilter();
@@ -41,7 +43,6 @@ export function startAudio(audio) {
   audio.engineGain.connect(ctx.destination);
   audio.engineOsc.start();
   osc2.start();
-  audio.engineOsc2 = osc2;
   // Wind: looped noise through a band-pass, louder and brighter with speed.
   const len = ctx.sampleRate * 2;
   const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -62,7 +63,7 @@ export function startAudio(audio) {
   audio.windSource.start();
 }
 
-/** Keep the engine and wind following the aircraft, once a frame. */
+/** Keep the engine and the wind following the aeroplane, once a frame. */
 export function updateAudio(audio, plane) {
   if (!audio.ctx || audio.muted) return;
   const t = audio.ctx.currentTime;
@@ -75,6 +76,7 @@ export function updateAudio(audio, plane) {
   audio.windFilter.frequency.setTargetAtTime(300 + wind * 900, t, 0.15);
 }
 
+/** One short synthesised note. */
 function blip(audio, freq, dur, type, gain, when = 0) {
   if (!audio.ctx || audio.muted) return;
   const t = audio.ctx.currentTime + when;
@@ -91,6 +93,7 @@ function blip(audio, freq, dur, type, gain, when = 0) {
   osc.stop(t + dur + 0.05);
 }
 
+/** One short burst of filtered noise. */
 function noiseBurst(audio, dur, gain, filterFreq) {
   if (!audio.ctx || audio.muted) return;
   const ctx = audio.ctx;
@@ -117,7 +120,7 @@ export function playRingChime(audio) {
   blip(audio, 1318, 0.4, 'sine', 0.14, 0.07);
 }
 
-/** The touchdown thud: low sine plus a soft noise burst. */
+/** The touchdown thud: a low sine plus a soft noise burst. */
 export function playTouchdown(audio) {
   blip(audio, 70, 0.3, 'sine', 0.3);
   noiseBurst(audio, 0.18, 0.18, 500);

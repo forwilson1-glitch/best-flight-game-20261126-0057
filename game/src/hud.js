@@ -1,6 +1,8 @@
 // The instruments: the tapes and dials a pilot actually flies by — airspeed and
-// altitude tapes, a heading compass, an artificial horizon, throttle and fuel.
-// Every number on the HUD is live from the world; nothing is painted on.
+// altitude tapes, a heading compass, an artificial horizon, throttle and fuel
+// gauges. Every number on the HUD is live from the world; nothing is painted on
+// for show. Every panel sits a clear margin inside the frame, and no tape ever
+// shows a number half cut off at its edge.
 import { CONFIG, MISSIONS } from './config.js';
 import { clamp } from './random.js';
 import { formatTime, remainingCount } from './missions.js';
@@ -9,7 +11,9 @@ const INK = 'rgba(235,242,250,0.92)';
 const DIM = 'rgba(235,242,250,0.55)';
 const GOLD = '#f4b942';
 const CYAN = '#57d7e8';
+const EDGE = 36; // every HUD panel keeps at least this far from the frame edge
 
+/** One frosted panel with a hairline border. */
 function panel(ctx, x, y, w, h, alpha = 0.42) {
   ctx.fillStyle = `rgba(10,16,28,${alpha})`;
   ctx.beginPath();
@@ -20,6 +24,11 @@ function panel(ctx, x, y, w, h, alpha = 0.42) {
   ctx.stroke();
 }
 
+/**
+ * A vertical scrolling tape: airspeed on the left, altitude on the right.
+ * Numbers sliding in or out at the top and bottom are left out entirely, so a
+ * still frame never shows a digit sliced in half.
+ */
 function tape(ctx, x, y, w, h, value, step, unit, fmt, boxSide = 'right') {
   panel(ctx, x, y, w, h);
   const cy = y + h / 2;
@@ -34,7 +43,7 @@ function tape(ctx, x, y, w, h, value, step, unit, fmt, boxSide = 'right') {
   const lo = Math.floor((value - range) / step) * step;
   for (let v = lo; v <= value + range + step; v += step) {
     const ty = cy - (v - value) * pxPerUnit;
-    if (ty < y + 4 || ty > y + h - 4) continue;
+    if (ty < y + 14 || ty > y + h - 14) continue;
     const major = v % (step * 5) === 0;
     ctx.strokeStyle = major ? INK : DIM;
     ctx.lineWidth = major ? 2 : 1;
@@ -48,7 +57,8 @@ function tape(ctx, x, y, w, h, value, step, unit, fmt, boxSide = 'right') {
     }
   }
   ctx.restore();
-  // Current value box: on the outside of the tape, so it never leaves the screen.
+  // The current-value box sits on the outside of the tape, so it never leaves
+  // the screen: left of the altitude tape, right of the airspeed tape.
   const boxX = boxSide === 'left' ? x - 70 : x + w - 4;
   const caretX = boxSide === 'left' ? x : x + w;
   ctx.fillStyle = '#12233a';
@@ -72,7 +82,7 @@ function tape(ctx, x, y, w, h, value, step, unit, fmt, boxSide = 'right') {
   ctx.fill();
 }
 
-/** Heading compass tape across the top centre of the screen. */
+/** The heading compass tape across the top centre of the screen. */
 function headingTape(ctx, w, headingDeg) {
   const x0 = w / 2 - 190;
   const y = 14;
@@ -90,6 +100,8 @@ function headingTape(ctx, w, headingDeg) {
   for (let d = start; d <= headingDeg + 60; d += 10) {
     const dd = ((d % 360) + 360) % 360;
     const tx = w / 2 + (d - headingDeg) * pxPerDeg;
+    // A heading sliding in or out is left out rather than half drawn.
+    if (tx < x0 + 20 || tx > x0 + width - 20) continue;
     const cardinal = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' }[dd];
     ctx.fillStyle = cardinal ? GOLD : DIM;
     ctx.fillText(cardinal || String(dd).padStart(3, '0'), tx, y + 22);
@@ -161,7 +173,7 @@ function artificialHorizon(ctx, x, y, r, roll, pitch) {
   ctx.fill();
 }
 
-/** Vertical bar gauge (throttle or fuel). */
+/** A vertical bar gauge (throttle or fuel) with its label and reading. */
 function barGauge(ctx, x, y, w, h, frac, colour, label, valueText) {
   panel(ctx, x - 8, y - 22, w + 16, h + 44);
   ctx.fillStyle = 'rgba(255,255,255,0.12)';
@@ -192,13 +204,13 @@ export function drawHUD(ctx, w, h, world, missionDef) {
 
   headingTape(ctx, w, headingDeg);
   tape(ctx, 16, 70, 62, 190, knots, 10, 'KT', (v) => String(Math.round(v)), 'right');
-  tape(ctx, w - 82, 70, 62, 190, feet, 100, 'FT', (v) => String(Math.round(v)), 'left');
+  tape(ctx, w - EDGE - 62, 70, 62, 190, feet, 100, 'FT', (v) => String(Math.round(v)), 'left');
   ctx.fillStyle = DIM;
   ctx.font = 'bold 11px system-ui, sans-serif';
   ctx.textAlign = 'left';
   ctx.fillText('AIRSPEED', 16, 62);
   ctx.textAlign = 'right';
-  ctx.fillText('ALTITUDE', w - 16, 62);
+  ctx.fillText('ALTITUDE', w - EDGE, 62);
 
   // Mission panel, top left under the airspeed tape.
   panel(ctx, 16, 276, 250, 92);
@@ -239,7 +251,7 @@ export function drawHUD(ctx, w, h, world, missionDef) {
   ctx.textAlign = 'center';
   ctx.fillText('ATTITUDE', w - 86, h - 18);
 
-  // Stall warning.
+  // Stall warning, when the wing is about to quit.
   const minSpeed = plane.flaps ? CONFIG.minSpeedFlaps : CONFIG.minSpeed;
   if (plane.airborne && plane.speed < minSpeed + 6) {
     ctx.fillStyle = '#ff5a4e';
@@ -254,7 +266,7 @@ export function drawHUD(ctx, w, h, world, missionDef) {
     ctx.fillText('LOW FUEL — FIND A GREEN RING', w / 2, 108);
   }
 
-  // Centre flash messages.
+  // Centre flash messages: what just happened, while it is fresh.
   const flashAge = world.time - world.flashAt;
   if (world.flash && flashAge < 2.6) {
     ctx.globalAlpha = clamp(1.2 - flashAge / 2.6, 0, 1);
@@ -364,6 +376,7 @@ export function drawEndScreen(ctx, w, h, world, missionDef) {
   ctx.fillText('R — fly again      M — choose another sortie', w / 2, h * 0.62);
 }
 
+/** Centred word-wrap for the title cards and the crash reason. */
 function wrapText(ctx, text, cx, y, maxWidth, lineHeight) {
   const words = text.split(' ');
   let line = '';

@@ -1,16 +1,17 @@
-// The view out of the windscreen: a sunset sky, a projected heightfield valley, the
-// runway, the pines, the rings ahead, and the Kestrel in chase view. All of it is
-// drawn from the world with a plain perspective projection — no library, no images.
+// The view out of the windscreen: a sunset sky, a far ridge in silhouette, a
+// projected heightfield valley, the runway, the pines, the rings ahead, and the
+// Kestrel in chase view. All of it is drawn from the world with a plain
+// perspective projection — no library, no images, no network.
 import { CONFIG } from './config.js';
 import { groundHeight, terrainColour, isLake, SUN_DIRECTION } from './terrain.js';
 import { drawAircraft } from './aircraft.js';
-import { clamp, lerp } from './random.js';
+import { clamp, valueNoise1D } from './random.js';
 
 const SKY_TOP = '#1c2a52';
 const SKY_MID = '#7a5a7e';
 const SKY_HORIZON = '#f4a259';
 
-/** Build the camera basis from the aircraft's heading and pitch. */
+/** The camera basis from the aeroplane's heading and pitch. */
 function cameraBasis(plane) {
   const heading = plane.heading;
   const pitch = plane.pitch;
@@ -28,7 +29,7 @@ function cameraBasis(plane) {
   };
   const len = Math.hypot(up.x, up.y, up.z) || 1;
   up.x /= len; up.y /= len; up.z /= len;
-  // Chase position: behind and above the aircraft, smoothed by the caller.
+  // Chase position: behind and above the aeroplane, smoothed by the caller.
   const cam = {
     x: plane.x - fwd.x * CONFIG.cameraDistance + up.x * CONFIG.cameraHeight,
     y: plane.y - fwd.y * CONFIG.cameraDistance + up.y * CONFIG.cameraHeight,
@@ -54,6 +55,18 @@ function project(cam, fwd, right, up, p, w, h, focal) {
   };
 }
 
+/**
+ * Project one world point for callers outside the renderer — the screenshot
+ * stager uses it to tell whether the next ring is framed well before it takes
+ * the picture. Same maths as the scene, so the answer is the frame's answer.
+ */
+export function projectWorldPoint(plane, w, h, point) {
+  const basis = cameraBasis(plane);
+  const focal = h * CONFIG.focal;
+  return project(basis.cam, basis.fwd, basis.right, basis.up, point, w, h, focal);
+}
+
+/** The sunset sky and the low sun, which stays put as the pilot turns. */
 function drawSky(ctx, w, h, plane) {
   const grad = ctx.createLinearGradient(0, 0, 0, h * 0.62);
   grad.addColorStop(0, SKY_TOP);
@@ -75,6 +88,35 @@ function drawSky(ctx, w, h, plane) {
   ctx.beginPath();
   ctx.arc(sx, sy, 26, 0, Math.PI * 2);
   ctx.fill();
+}
+
+/**
+ * The far ridge: two layers of mountain silhouette standing on the horizon, so
+ * the valley has a far wall instead of sky meeting flat green. The profile is
+ * noise over the heading, so it slides past as the pilot turns, the way a real
+ * ridge does.
+ */
+function drawRidge(ctx, w, h, heading) {
+  const baseY = h * 0.46;
+  const layers = [
+    { seed: 41, amp: 0.10, colour: 'rgba(122,96,138,0.75)', top: 0.30 },
+    { seed: 97, amp: 0.07, colour: 'rgba(88,70,110,0.9)', top: 0.36 },
+  ];
+  for (const layer of layers) {
+    ctx.fillStyle = layer.colour;
+    ctx.beginPath();
+    ctx.moveTo(-4, baseY + 2);
+    for (let x = 0; x <= w; x += 16) {
+      const u = x / w + heading * 0.35;
+      const n = valueNoise1D(u * 3.1, layer.seed);
+      const n2 = valueNoise1D(u * 7.7 + 5, layer.seed + 3);
+      const y = baseY - (n * layer.amp + n2 * layer.amp * 0.45) * h;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(w + 4, baseY + 2);
+    ctx.closePath();
+    ctx.fill();
+  }
 }
 
 /** The valley floor: projected heightfield strips, far to near. */
@@ -134,9 +176,11 @@ function drawTerrain(ctx, w, h, basis, focal) {
   }
 }
 
-/** The runway: a dark strip with dashes, threshold bars and edge lights.
- *  Drawn in short segments along its length, so the part behind the camera is
- *  skipped while the rest still shows. */
+/**
+ * The runway: a dark strip with dashes, threshold bars and edge lights. It is
+ * drawn in short segments along its length, so the part behind the camera is
+ * skipped while the rest still shows.
+ */
 function drawRunway(ctx, w, h, basis, focal) {
   const { cam, fwd, right, up } = basis;
   const R = CONFIG.runway;
@@ -207,6 +251,18 @@ function drawRunway(ctx, w, h, basis, focal) {
       ctx.fill();
     }
   }
+  // Edge lights: small amber dots down both sides, so the strip reads at dusk.
+  for (let z = R.z - halfL + 20; z <= R.z + halfL - 20; z += 62) {
+    for (const side of [-1, 1]) {
+      const p = project(cam, fwd, right, up, { x: R.x + side * (halfW + 2), y: 0.8, z }, w, h, focal);
+      if (!p) continue;
+      ctx.fillStyle = '#ffc95e';
+      ctx.beginPath();
+      // Capped, so a light right beside the camera never becomes a wall of amber.
+      ctx.arc(p.x, p.y, Math.min(5, Math.max(1.5, p.scale * 1.4)), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
 }
 
 /** A ring: a glowing circle standing in the air, gold when it is next. */
@@ -214,7 +270,7 @@ function drawRing(ctx, w, h, basis, focal, ring, isNext, time) {
   const { cam, fwd, right, up } = basis;
   const N = 26;
   const pts = [];
-  // The ring faces along the course (its plane is perpendicular to the valley, i.e. to z).
+  // The ring faces along the course (its plane is perpendicular to the valley).
   for (let i = 0; i <= N; i += 1) {
     const a = (i / N) * Math.PI * 2;
     pts.push(project(cam, fwd, right, up, {
@@ -321,11 +377,16 @@ function drawParticles(ctx, w, h, basis, focal, particles) {
     const s = project(cam, fwd, right, up, p, w, h, focal);
     if (!s) continue;
     const age = p.age / p.life;
-    // Cap the on-screen radius: a puff right under the camera must not become
-    // a wall of grey.
-    const size = Math.min(38, p.size * s.scale * (1 + age * 1.4));
+    // Cap the on-screen radius: a puff right under the camera must never
+    // become a wall of grey that hides the runway.
+    const size = Math.min(26, p.size * s.scale * (1 + age * 1.4));
     if (p.kind === 'smoke') {
-      ctx.fillStyle = `rgba(220,222,228,${0.55 * (1 - age)})`;
+      // Soft-edged puff, fading to nothing at its rim, so touchdown smoke
+      // reads as smoke instead of a pile of grey balls.
+      const soft = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, Math.max(1.5, size));
+      soft.addColorStop(0, `rgba(228,230,234,${0.5 * (1 - age)})`);
+      soft.addColorStop(1, 'rgba(228,230,234,0)');
+      ctx.fillStyle = soft;
     } else {
       ctx.fillStyle = `rgba(255,214,110,${0.95 * (1 - age)})`;
     }
@@ -341,6 +402,7 @@ export function renderScene(ctx, w, h, world, scenery, time) {
   const focal = h * CONFIG.focal;
   const basis = cameraBasis(plane);
   drawSky(ctx, w, h, plane);
+  drawRidge(ctx, w, h, plane.heading);
   drawClouds(ctx, w, h, basis, focal, scenery.clouds);
   drawTerrain(ctx, w, h, basis, focal);
   drawRunway(ctx, w, h, basis, focal);
@@ -355,7 +417,7 @@ export function renderScene(ctx, w, h, world, scenery, time) {
   drawTrees(ctx, w, h, basis, focal, scenery.trees);
   drawParticles(ctx, w, h, basis, focal, world.particles);
 
-  // The aircraft's shadow on the ground below, so height reads at a glance.
+  // The aeroplane's shadow on the ground below, so height reads at a glance.
   const ground = groundHeight(plane.x, plane.z);
   if (plane.y - ground < 220) {
     const sp = project(basis.cam, basis.fwd, basis.right, basis.up, { x: plane.x, y: ground + 0.5, z: plane.z }, w, h, focal);

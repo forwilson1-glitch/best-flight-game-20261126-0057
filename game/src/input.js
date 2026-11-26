@@ -1,5 +1,6 @@
-// Keyboard and mouse, kept in one place. The game reads a plain input object each
-// frame, so the autopilot in shots.js can drive the same aircraft the pilot does.
+// Keyboard and mouse, kept in one place. The game reads a plain input object
+// each frame, so the autopilot in shots.js can drive the same aeroplane the
+// pilot does — the stick is the stick, whoever holds it.
 export function createInput() {
   return {
     keys: new Set(),
@@ -52,7 +53,7 @@ export function attachInput(input, canvas) {
   canvas.addEventListener('mouseleave', () => { input.mouseActive = false; });
 }
 
-/** Read the current stick position from keys (and the mouse, when it moved lately). */
+/** Read the current stick position from the keys (and the mouse, when it moved lately). */
 export function pollInput(input, now) {
   const k = input.keys;
   let pitch = 0;
@@ -61,12 +62,12 @@ export function pollInput(input, now) {
   if (k.has('down')) pitch -= 1;
   if (k.has('left')) roll -= 1;
   if (k.has('right')) roll += 1;
-  // W/S double as throttle when the arrows are doing the flying; Shift/Ctrl always work.
+  // W/S double as throttle while the arrows do the flying; Shift/Ctrl always work.
   let throttle = 0;
   if (k.has('throttleUp')) throttle += 1;
   if (k.has('throttleDown')) throttle -= 1;
   if (input.mouseActive && now - input.mouseMovedAt < 2.5) {
-    // Pointer steering: the aircraft follows the pointer like a yoke.
+    // Pointer steering: the aeroplane follows the pointer like a yoke.
     roll = Math.max(-1, Math.min(1, (input.mouseX - 0.5) * 2.4));
     pitch = Math.max(-1, Math.min(1, (0.52 - input.mouseY) * 2.4));
   }
