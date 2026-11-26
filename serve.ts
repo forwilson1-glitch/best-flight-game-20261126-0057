@@ -1,4 +1,8 @@
-// Serve game/ at http://localhost:8080 for play-testing (Node 22, standard library only).
+// A tiny static server for game/ (Node 22, standard library only), so the
+// entry can be played locally without a build step: `node serve.ts` serves
+// game/ on http://localhost:8080. It sends the MIME types a browser game
+// needs and refuses any path outside game/. A development convenience, not a
+// web server for the internet.
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join, extname } from 'node:path';

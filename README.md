@@ -14,6 +14,10 @@ Fly the little prop monoplane *Kestrel* over a procedural valley at sunset, in c
 
 Fuel drains as you fly, hard landings damage the airframe, and a stall drops the nose — flying is a series of small decisions, not a straight line.
 
+## What v2 improves
+
+The first version flew well but its screenshots caught the aeroplane mid-turn, banked hard, with the next ring off to one side. v2 stages every screenshot: the autopilot flies the course, then waits for a composed frame — wings near level, the next ring or gate centred ahead — before the picture is taken. The HUD keeps a clear margin inside the frame and never shows a tape number half cut off at its edge. The valley gained a far ridge in silhouette, warmer sunset rock, a thicker pine stand along the course and amber edge lights down the runway. A fourth screenshot shows the title screen, so the three sorties are visible at a glance.
+
 ## Controls
 
 - **↑ / ↓** pitch, **← / →** bank and turn
@@ -38,13 +42,13 @@ No build step, no network requests, no libraries — pure Canvas 2D and WebAudio
 - `game/src/world.js` — the world state, fuel, damage, particles
 - `game/src/physics.js` — the flight model and the autopilot's steering
 - `game/src/terrain.js` — the heightfield valley, runway, pines, clouds
-- `game/src/render.js` — the chase-view projection and scene drawing
+- `game/src/render.js` — the chase-view projection, ridge, scene drawing
 - `game/src/aircraft.js` — the Kestrel, drawn in flat vector
 - `game/src/hud.js` — tapes, compass, artificial horizon, gauges, screens
 - `game/src/missions.js` — the three sorties, rings, gates, landing judgement
 - `game/src/input.js` — keyboard and mouse
 - `game/src/audio.js` — synthesised engine, wind, chimes and crashes
-- `game/src/shots.js` — the deterministic screenshot scenes
+- `game/src/shots.js` — the deterministic screenshot scenes and pose search
 - `main.ts` — the hand-in program (Node 22, standard library only)
 
 ## License
